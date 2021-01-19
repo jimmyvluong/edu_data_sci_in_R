@@ -1,0 +1,122 @@
+---
+title: "Walkthrough 2: Approaching Gradebook Data From a Data Science Perspective"
+output: html_notebook
+---
+This walkthrough further explores the ubiquitous but not-often-analyzed classroom gradebook dataset. We will use data science tools and techniques and focus more on analyses, including correlations and linear models.
+```{r}
+# Load libraries
+library(tidyverse)
+library(here)
+library(readxl)
+library(janitor)
+library(dataedu)
+```
+
+```{r}
+# Read in using file path
+# ExcelGradeBook <- read_excel("path/to/file.xlsx", sheet = 1, skip = 10)
+```
+# Read in the data
+```{r}
+# Use readxl package to read and import file and assign it a name
+ExcelGradeBook <-
+  read_excel(
+    here("data", "gradebooks", "ExcelGradeBook.xlsx"),
+    sheet = 1,
+    skip = 10
+  )
+```
+
+```{r}
+# Rename data frame
+gradebook <- ExcelGradeBook
+```
+# Begin data cleaning
+# New functions
+1. clean_names(), which takes messy column names that have periods, capitalized letters, spaces, etc. into R-friendly column names
+2. get_dupes(), which identifies and examines duplicate records
+3. tabyl(), which tabulates data in a data.frame format, and can be ‘adorned’ with the adorn_ functions to add total rows, percentages, and other dressings
+
+```{r}
+# look at the first few original column names
+head(colnames(gradebook)) 
+```
+
+```{r}
+# look at all the original column names
+colnames(gradebook)
+```
+
+```{r}
+# Clean the names with the clean_names() function
+gradebook <- 
+  gradebook %>% 
+  clean_names()
+
+# look at cleaned column names
+head(colnames(gradebook))
+```
+
+```{r}
+# Removing rows and columns with nothing but missing data
+gradebook <- 
+  gradebook %>% 
+  remove_empty(c("rows", "cols"))
+
+gradebook
+```
+
+```{r}
+# Remove a targeted column because we don't use absent and late at this school.
+gradebook <- 
+  gradebook %>% 
+  select(-absent, -late)
+
+View(gradebook)
+```
+# Create new variables
+We’ll use the function contains() from {stringr} to tell R to select columns that contain a certain string (that is, text). The function searches for any column with the string classwork_. The underscore makes sure the variables from classwork_1 all the way to classwork_17 are included in classwork_df.
+
+```{r}
+# Creates new data frame, selects desired variables from gradebook, and gathers all classwork scores into key/value pairs
+classwork_df <-
+  gradebook %>%
+  select(
+    name,
+    running_average,
+    letter_grade,
+    homeworks,
+    classworks,
+    formative_assessments,
+    projects,
+    summative_assessments,
+    contains("classwork_")) %>%
+  # Note that scores are in character format. 
+  # We use mutate() to transform them to numeric.
+  mutate_at(vars(contains("classwork_")), list(~ as.numeric(.))) %>%
+  pivot_longer(
+    cols = contains("classwork_"),
+    names_to = "classwork_number",
+    values_to = "score"
+  )
+```
+
+```{r}
+# Summary of the data by columns
+summary(gradebook)
+```
+
+```{r}
+# Bar graph for categorical variable
+gradebook %>%
+  ggplot(aes(x = letter_grade,
+             fill = running_average > 90)) +
+  geom_bar() +
+  labs(title = "Bar Graph of Student Grades",
+       x = "Letter Grades",
+       y = "Count",
+       fill = "A or Better") +
+  scale_fill_dataedu() +
+  theme_dataedu()
+```
+
